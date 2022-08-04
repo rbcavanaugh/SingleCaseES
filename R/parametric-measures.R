@@ -527,16 +527,18 @@ SMD <- function(A_data, B_data, condition, outcome,
                 baseline_phase = NULL,
                 intervention_phase = NULL,
                 improvement = "increase",
-                std_dev = "baseline", 
+                std_dev = "baseline",
+                replace_std_dev = NULL,
                 bias_correct = TRUE, 
                 confidence = .95) {
  
-  calc_ES(A_data = A_data, B_data = B_data, 
+  calc_ES(A_data = A_data, B_data = B_data,
           condition = condition, outcome = outcome, 
           baseline_phase = baseline_phase,
           intervention_phase = intervention_phase,
           ES = "SMD", improvement = improvement,
           std_dev = std_dev,
+          replace_std_dev = replace_std_dev,
           bias_correct = bias_correct, confidence = confidence)
 }
 
@@ -544,6 +546,7 @@ SMD <- function(A_data, B_data, condition, outcome,
 calc_SMD <- function(A_data, B_data, 
                      improvement = "increase",
                      std_dev = "baseline", 
+                     replace_std_dev = NULL,
                      bias_correct = TRUE, 
                      confidence = .95, warn = TRUE, ...) {
   
@@ -553,9 +556,16 @@ calc_SMD <- function(A_data, B_data,
     df <- dat$n[1] - 1
     s_sq <- dat$V[1]
     SV1 <- with(dat, 1 / n[1] + V[2] / (n[2] * V[1]))
-  } else {
+  } else if (std_dev == "pool") {
     df <- sum(dat$n - 1)
     s_sq <-  with(dat, sum((n - 1) * V, na.rm = TRUE) / df)
+    SV1 <- sum(1 / dat$n)
+  } else { # condition if providing custom SD
+    df <- sum(dat$n - 1)
+    s_sq <-  tryCatch(
+      replace_std_dev^2,
+      error = function(e) stop('`Must provide a replacement value for replace_std_dev if std_dev = "custom"`')
+    )
     SV1 <- sum(1 / dat$n)
   }
   
@@ -580,8 +590,10 @@ calc_SMD <- function(A_data, B_data,
   
   if (std_dev == "baseline") {
     res$`baseline_SD` = sqrt(s_sq)
-  } else {
+  } else if (std_dev == "pool") {
     res$`pooled_SD` = sqrt(s_sq)
+  } else {
+    res$`custom_SD` = replace_std_dev
   }
   
   return(res)
